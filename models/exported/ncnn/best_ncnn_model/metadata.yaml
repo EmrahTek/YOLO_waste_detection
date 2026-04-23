@@ -1,0 +1,20 @@
+description: Ultralytics YOLO11n model trained on /home/emrahtek/Schreibtisch/CodeLab/YOLO_Mulltrennung/yolo_dataset/prepared/data.yaml
+author: Ultralytics
+date: '2026-04-22T22:48:49.601626'
+version: 8.4.41
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: tetrapak
+  1: dose
+args:
+  batch: 1
+  half: false
+channels: 3
+end2end: false

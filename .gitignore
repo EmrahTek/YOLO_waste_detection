@@ -1,0 +1,90 @@
+# =========================
+# Virtual environments
+# =========================
+.venv/
+venv/
+ENV/
+env/
+
+# =========================
+# Python cache / compiled files
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+
+# =========================
+# IDE / editor / system files
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs / temp / cache
+# =========================
+logs/
+*.log
+*.tmp
+.cache/
+*.cache
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Build / packaging
+# =========================
+build/
+dist/
+*.egg-info/
+
+# =========================
+# YOLO / training outputs
+# =========================
+runs/
+outputs/
+
+# =========================
+# Model weights / export artifacts
+# =========================
+*.pt
+*.pth
+*.onnx
+*.engine
+*.torchscript
+*.tflite
+
+# =========================
+# Large archives
+# =========================
+*.zip
+*.tar
+*.gz
+*.7z
+
+# =========================
+# Large videos
+# =========================
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# =========================
+# Local datasets
+# =========================
+yolo_dataset/
+
+# =========================
+# Optional local folders
+# add only if these are generated/local
+# =========================
+torch/
+Archiv/
