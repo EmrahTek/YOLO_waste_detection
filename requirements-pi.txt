@@ -1,0 +1,6 @@
+ultralytics>=8.4.41
+pyyaml>=6.0
+numpy>=1.26.0
+pillow>=10.0.0
+ncnn>=1.0.20240102
+portalocker>=2.8.0

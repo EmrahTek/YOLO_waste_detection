@@ -9,19 +9,21 @@ Target classes:
 | 0 | `tetrapak` | Beverage carton / Tetra Pak style package |
 | 1 | `dose` | Metal can |
 
-The desktop training and export workflow is complete. Raspberry Pi 5 and Pi AI Camera deployment is the next project step.
+The desktop training and export workflow is complete. Raspberry Pi 5 + Raspberry Pi AI Camera runtime support has been added around the exported NCNN model.
 
 ## Current Status
 
 - Cleaned YOLO dataset: `yolo_dataset/prepared`
 - Trained model: `runs/train/tetrapak_dose_yolo11n/weights/best.pt`
 - Training run: `runs/train/tetrapak_dose_yolo11n`
-- ONNX export: `models/exported/onnx/best.onnx`
-- NCNN export: `models/exported/ncnn/best_ncnn_model`
+- ONNX export target: `models/exported/onnx/best.onnx`
+- NCNN export available for Pi runtime: `models/exported/ncnn/best_ncnn_model`
+- Raspberry Pi camera runner: `scripts/run_pi_camera.sh`
+- Raspberry Pi 5 + AI Camera smoke test: passed with `imx500` camera
 - Test metrics summary: `reports/validation_metrics_test.json`
 - Recommended demo confidence threshold: about `0.5`
 
-The baseline works on prepared test images. A confidence threshold of `0.5` produced cleaner desktop predictions than `0.25`. The model has not yet been tested with the local laptop/desktop webcam.
+The baseline works on prepared test images. A confidence threshold of `0.5` produced cleaner desktop predictions than `0.25`. The Raspberry Pi path has been smoke-tested with Picamera2 on Raspberry Pi 5 + Raspberry Pi AI Camera.
 
 ## Project Structure
 
@@ -33,9 +35,12 @@ The baseline works on prepared test images. A confidence threshold of `0.5` prod
 │   │   └── ncnn/best_ncnn_model/
 │   └── pretrained/
 ├── notebooks/
+├── README.md
 ├── reports/
 │   ├── evaluation_summary.md
 │   └── validation_metrics_test.json
+├── requirements.txt
+├── requirements-pi.txt
 ├── runs/
 │   ├── train/tetrapak_dose_yolo11n/
 │   ├── val/test/
@@ -46,7 +51,8 @@ The baseline works on prepared test images. A confidence threshold of `0.5` prod
 │   ├── run_predict.sh
 │   ├── run_train.sh
 │   ├── run_val.sh
-│   └── run_webcam.sh
+│   ├── run_webcam.sh
+│   └── run_pi_camera.sh
 ├── src/
 │   ├── check_dataset.py
 │   ├── export_model.py
@@ -107,6 +113,8 @@ python3 -m venv .venv
 ```
 
 For GPU training, PyTorch must match the CUDA setup on the training computer.
+
+For Raspberry Pi runtime setup, use the dedicated `requirements-pi.txt` flow in the Raspberry Pi section below.
 
 ## Dataset Commands
 
@@ -329,36 +337,112 @@ Export both formats:
   --output-root models/exported
 ```
 
-Current export artifacts:
+Current Raspberry Pi runtime artifacts:
 
-- `models/exported/onnx/best.onnx`
 - `models/exported/ncnn/best_ncnn_model/model.ncnn.param`
 - `models/exported/ncnn/best_ncnn_model/model.ncnn.bin`
 - `models/exported/ncnn/best_ncnn_model/metadata.yaml`
 
-## Raspberry Pi Next Step
+Optional ONNX export target, if you need to regenerate it locally:
 
-Deployment is intentionally not done yet. Tomorrow's Raspberry Pi work should start from the existing exports:
+- `models/exported/onnx/best.onnx`
+
+## Raspberry Pi 5 + AI Camera
+
+This project now has a Raspberry Pi runtime path:
+
+- Camera input: Raspberry Pi AI Camera through `Picamera2`
+- Detection runtime: exported NCNN model through Ultralytics on the Pi CPU
+- Default model: `models/exported/ncnn/best_ncnn_model`
+- Default command: `./scripts/run_pi_camera.sh`
+
+Important: this uses the AI Camera as the camera source. Running this custom YOLO model on the AI Camera's IMX500 accelerator itself requires Edge-MDT conversion to an IMX500 `.rpk` model plus matching post-processing; that conversion is not included here.
+
+On the Raspberry Pi, first install system camera packages and the AI Camera firmware:
 
 ```bash
-python -m src.pi_inference \
-  --model models/exported/ncnn/best_ncnn_model \
-  --source 0 \
-  --backend ultralytics \
-  --device cpu \
-  --conf 0.5
+sudo apt update && sudo apt full-upgrade
+sudo apt install -y imx500-all python3-full python3-venv python3-picamera2 python3-opencv
+sudo reboot
 ```
 
-For Picamera2 testing on Raspberry Pi OS, install Pi camera dependencies on the Pi and then adapt/run:
+After reboot, verify that the AI Camera is detected:
 
 ```bash
-python -m src.pi_inference \
-  --model models/exported/ncnn/best_ncnn_model \
+rpicam-hello -t 5000
+```
+
+Optional IMX500 firmware/demo check with Raspberry Pi's packaged model:
+
+```bash
+rpicam-hello -t 0s \
+  --post-process-file /usr/share/rpi-camera-assets/imx500_mobilenet_ssd.json \
+  --viewfinder-width 1920 \
+  --viewfinder-height 1080 \
+  --framerate 30
+```
+
+Create the project environment on the Pi. The `--system-site-packages` flag is intentional because `picamera2` and `libcamera` should come from Raspberry Pi OS packages:
+
+```bash
+cd ~/YOLO_waste_detection
+python3 -m venv .venv --system-site-packages
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements-pi.txt
+```
+
+Run live detection with preview:
+
+```bash
+./scripts/run_pi_camera.sh
+```
+
+Quick headless smoke test:
+
+```bash
+.venv/bin/python -m src.pi_inference \
   --backend picamera2 \
-  --device cpu \
+  --model models/exported/ncnn/best_ncnn_model \
+  --imgsz 640 \
   --conf 0.5 \
-  --show
+  --device cpu \
+  --width 1280 \
+  --height 720 \
+  --fps 15 \
+  --max-frames 30 \
+  --log-every 1 \
+  --no-save
 ```
+
+Direct equivalent command:
+
+```bash
+.venv/bin/python -m src.pi_inference \
+  --backend picamera2 \
+  --model models/exported/ncnn/best_ncnn_model \
+  --imgsz 640 \
+  --conf 0.5 \
+  --device cpu \
+  --width 1280 \
+  --height 720 \
+  --fps 15 \
+  --show \
+  --no-save
+```
+
+Headless run that saves a short annotated video:
+
+```bash
+SHOW=0 SAVE=1 MAX_FRAMES=300 ./scripts/run_pi_camera.sh
+```
+
+Useful tuning variables:
+
+```bash
+CONF=0.45 WIDTH=960 HEIGHT=540 FPS=10 ./scripts/run_pi_camera.sh
+```
+
+Saved Pi videos are written under `runs/pi_inference/<name>/picamera2_inference.avi` when `SAVE=1` or `--save` is used.
 
 ## Helper Scripts
 
@@ -368,6 +452,7 @@ python -m src.pi_inference \
 SPLIT=test NAME=test ./scripts/run_val.sh
 ./scripts/run_export.sh
 ./scripts/run_webcam.sh
+./scripts/run_pi_camera.sh
 ```
 
 `./scripts/run_train.sh` is available for reproducibility, but training is already complete.
@@ -377,14 +462,17 @@ SPLIT=test NAME=test ./scripts/run_val.sh
 - The dataset is small, especially the prepared test split with `57` images.
 - Recall is lower than precision, so missed detections should be reviewed in real scenes.
 - The model has not yet been tested with the local webcam.
-- The model has not yet been tested on Raspberry Pi 5 or the Pi AI Camera.
+- Basic Raspberry Pi 5 + AI Camera hardware smoke testing has passed; longer real-scene testing is still needed.
+- The custom YOLO model currently runs through NCNN/Ultralytics on the Pi CPU, not on the AI Camera IMX500 accelerator.
 - Real lighting, motion blur, camera angle, object scale, and clutter may require more training data.
 - The raw CVAT-derived dataset still contains excluded unlabeled images; source data was preserved.
 
 ## Recommended Next Improvements
 
 - Run the local webcam test at `conf=0.5`.
+- Run a longer `./scripts/run_pi_camera.sh` session on the Raspberry Pi and record FPS plus false positives/negatives.
 - Save a few false positives and false negatives from webcam testing.
-- Test ONNX and NCNN inference speed on Raspberry Pi 5.
+- Compare `1280x720`, `960x540`, and `640x480` camera input sizes on Raspberry Pi 5.
 - Add Pi camera examples to the dataset if deployment reveals weak cases.
+- If IMX500 acceleration is required, convert the trained model with Edge-MDT and add IMX500 post-processing.
 - Consider a second training run only after collecting new real-world failure cases.
