@@ -1,22 +1,58 @@
-"""Create a matplotlib comparison plot for YOLO11n and YOLO26n metrics."""
+"""Create a matplotlib comparison plot for YOLO model metrics."""
 
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-OUTPUT_DIR = Path("reports/compare")
-OUTPUT_PATH = OUTPUT_DIR / "yolo11n_vs_yolo26n_metrics.png"
+METRICS = ["precision", "recall", "f1", "map50", "map50_95"]
+METRIC_LABELS = ["Precision", "Recall", "F1", "mAP50", "mAP50-95"]
+
+
+def load_json(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if "model" not in data:
+        data["model"] = path.stem.replace("_test", "")
+
+    return data
 
 
 def main() -> int:
-    metrics = ["Precision", "Recall", "F1", "mAP50", "mAP50-95"]
+    parser = argparse.ArgumentParser(description="Plot YOLO model comparison.")
+    parser.add_argument("--inputs", type=Path, nargs="+", required=True)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("reports/compare/yolo_model_comparison_metrics.png"),
+    )
+    args = parser.parse_args()
 
-    yolo11n = np.array([0.8080, 0.7292, 0.7666, 0.8516, 0.7113])
-    yolo26n = np.array([0.7672, 0.7617, 0.7645, 0.7442, 0.6286])
+    models = [load_json(path) for path in args.inputs]
+
+    x = np.arange(len(METRICS))
+    width = 0.8 / len(models)
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    for index, model in enumerate(models):
+        values = [float(model[metric]) for metric in METRICS]
+        offset = (index - (len(models) - 1) / 2) * width
+
+        bars = ax.bar(
+            x + offset,
+            values,
+            width,
+            label=model["model"],
+        )
+
+        ax.bar_label(bars, fmt="%.3f", padding=3, fontsize=8)
 
     explanations = (
         "Precision: Anteil korrekter positiver Vorhersagen.\n"
@@ -26,28 +62,17 @@ def main() -> int:
         "mAP50-95: Strengere Bewertung über mehrere IoU-Grenzen."
     )
 
-    x = np.arange(len(metrics))
-    width = 0.35
-
-    fig, ax = plt.subplots(figsize=(11, 8))
-
-    bars_11 = ax.bar(x - width / 2, yolo11n, width, label="YOLO11n")
-    bars_26 = ax.bar(x + width / 2, yolo26n, width, label="YOLO26n")
-
-    ax.set_title("YOLO11n vs YOLO26n - Test Metrics Müllabfalltrennung")
+    ax.set_title("YOLO Model Comparison - Test Metrics")
     ax.set_ylabel("Score")
     ax.set_ylim(0, 1.05)
     ax.set_xticks(x)
-    ax.set_xticklabels(metrics)
+    ax.set_xticklabels(METRIC_LABELS)
     ax.legend()
     ax.grid(axis="y", linestyle="--", alpha=0.4)
 
-    ax.bar_label(bars_11, fmt="%.3f", padding=3)
-    ax.bar_label(bars_26, fmt="%.3f", padding=3)
-
     fig.text(
-        0.1,
-        0.04,
+        0.08,
+        0.02,
         explanations,
         ha="left",
         va="bottom",
@@ -56,11 +81,11 @@ def main() -> int:
 
     fig.tight_layout(rect=[0, 0.22, 1, 1])
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUTPUT_PATH, dpi=200)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(args.output, dpi=200)
     plt.show()
 
-    print(f"Plot saved to: {OUTPUT_PATH}")
+    print(f"Plot saved to: {args.output}")
     return 0
 
 
